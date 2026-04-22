@@ -610,11 +610,27 @@ export function VideoTable() {
   const [approvalFilter, setApprovalFilter] = useState<string>("all");
   const [showAddDialog, setShowAddDialog] = useState(false);
 
-  const supabase = createClient();
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
+  if (!supabaseRef.current) {
+    try {
+      supabaseRef.current = createClient();
+      console.log("[VideoTable] Supabase client inicializován, URL:",
+        process.env.NEXT_PUBLIC_SUPABASE_URL?.slice(0, 40) + "…");
+    } catch (err) {
+      console.error("[VideoTable] Nelze inicializovat Supabase client:", err);
+    }
+  }
+  const supabase = supabaseRef.current;
 
   const fetchData = useCallback(async () => {
+    if (!supabase) {
+      setError("Supabase client není dostupný. Zkontrolujte .env.local soubor.");
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
+    console.log("[VideoTable] Načítám data z Supabase…");
     const [videosResult, designersResult] = await Promise.all([
       supabase
         .from("videos")
@@ -624,19 +640,31 @@ export function VideoTable() {
     ]);
 
     if (videosResult.error) {
+      console.error("[VideoTable] Chyba při načítání videí:", {
+        message: videosResult.error.message,
+        code: videosResult.error.code,
+        details: videosResult.error.details,
+        hint: videosResult.error.hint,
+      });
       setError("Nepodařilo se načíst videa: " + videosResult.error.message);
     } else {
+      console.log("[VideoTable] Načteno videí:", videosResult.data?.length ?? 0);
       setVideos(videosResult.data ?? []);
     }
-    if (designersResult.data) setDesigners(designersResult.data);
+    if (designersResult.error) {
+      console.error("[VideoTable] Chyba při načítání grafiček:", designersResult.error);
+    } else {
+      setDesigners(designersResult.data ?? []);
+    }
     setLoading(false);
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   async function handleUpdate(id: string, field: keyof VideoRow, value: unknown) {
+    if (!supabase) return;
     setVideos((prev) =>
       prev.map((v) => (v.id === id ? { ...v, [field]: value } : v))
     );
@@ -645,16 +673,27 @@ export function VideoTable() {
       .update({ [field]: value, updated_at: new Date().toISOString() } as Record<string, unknown>)
       .eq("id", id);
     if (error) {
-      console.error("Update error:", error);
+      console.error("[VideoTable] Chyba při aktualizaci pole", field, ":", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
       fetchData();
     }
   }
 
   async function handleDelete(id: string) {
+    if (!supabase) return;
     setVideos((prev) => prev.filter((v) => v.id !== id));
     const { error } = await supabase.from("videos").delete().eq("id", id);
     if (error) {
-      console.error("Delete error:", error);
+      console.error("[VideoTable] Chyba při mazání videa:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
       fetchData();
     }
   }
@@ -663,32 +702,39 @@ export function VideoTable() {
     title: string;
     date_assigned: string | null;
   }) {
+    if (!supabase) {
+      throw new Error("Supabase client není dostupný. Zkontrolujte .env.local soubor.");
+    }
+
+    console.log("[VideoTable] Přidávám video:", data);
+
+    // Posíláme pouze povinné pole + datum — DB defaulty doplní zbytek
+    const insertPayload = {
+      title: data.title,
+      ...(data.date_assigned ? { date_assigned: data.date_assigned } : {}),
+    };
+
+    console.log("[VideoTable] Insert payload:", insertPayload);
+
     const { data: newVideo, error } = await supabase
       .from("videos")
-      .insert({
-        title: data.title,
-        date_assigned: data.date_assigned,
-        materials_ready: false,
-        assigned_to_designer: false,
-        designer_id: null,
-        production_status: "in_progress",
-        finished_video_folder_url: null,
-        approval_status: "pending",
-        approval_sent_at: null,
-        published_fb: null,
-        published_ig: null,
-        published_yt: null,
-        published_tiktok: null,
-        published_pinterest: null,
-        results_url: null,
-        tags: [],
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
-    if (!error && newVideo) {
-      setVideos((prev) => [newVideo, ...prev]);
+    if (error) {
+      console.error("[VideoTable] Chyba při insertu videa:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        fullError: JSON.stringify(error),
+      });
+      throw new Error(error.message || "Neznámá chyba při ukládání videa");
     }
+
+    console.log("[VideoTable] Video úspěšně přidáno:", newVideo);
+    setVideos((prev) => [newVideo, ...prev]);
     setShowAddDialog(false);
   }
 

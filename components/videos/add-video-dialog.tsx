@@ -22,23 +22,34 @@ export function AddVideoDialog({ open, onClose, onAdd }: AddVideoDialogProps) {
   const [title, setTitle] = useState("");
   const [dateAssigned, setDateAssigned] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
     setSubmitting(true);
-    await onAdd({
-      title: title.trim(),
-      date_assigned: dateAssigned || null,
-    });
-    setTitle("");
-    setDateAssigned("");
-    setSubmitting(false);
+    setError(null);
+    try {
+      await onAdd({
+        title: title.trim(),
+        date_assigned: dateAssigned || null,
+      });
+      // Dialog zavírá rodič pouze při úspěchu
+      setTitle("");
+      setDateAssigned("");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[AddVideoDialog] Chyba při přidávání videa:", err);
+      setError(msg);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleClose() {
     setTitle("");
     setDateAssigned("");
+    setError(null);
     onClose();
   }
 
@@ -69,6 +80,14 @@ export function AddVideoDialog({ open, onClose, onAdd }: AddVideoDialogProps) {
               onChange={(e) => setDateAssigned(e.target.value)}
             />
           </div>
+
+          {error && (
+            <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2">
+              <p className="text-sm text-red-700 font-medium">Chyba při ukládání:</p>
+              <p className="text-xs text-red-600 mt-0.5 font-mono break-all">{error}</p>
+            </div>
+          )}
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleClose}>
               Zrušit
