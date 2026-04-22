@@ -15,12 +15,17 @@ import { Label } from "@/components/ui/label";
 interface AddVideoDialogProps {
   open: boolean;
   onClose: () => void;
-  onAdd: (data: { title: string; date_assigned: string | null }) => Promise<void>;
+  onAdd: (data: {
+    title: string;
+    date_assigned: string | null;
+    materials_url: string | null;
+  }) => Promise<void>;
 }
 
 export function AddVideoDialog({ open, onClose, onAdd }: AddVideoDialogProps) {
   const [title, setTitle] = useState("");
   const [dateAssigned, setDateAssigned] = useState("");
+  const [materialsUrl, setMaterialsUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,10 +38,11 @@ export function AddVideoDialog({ open, onClose, onAdd }: AddVideoDialogProps) {
       await onAdd({
         title: title.trim(),
         date_assigned: dateAssigned || null,
+        materials_url: materialsUrl.trim() || null,
       });
-      // Dialog zavírá rodič pouze při úspěchu
       setTitle("");
       setDateAssigned("");
+      setMaterialsUrl("");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[AddVideoDialog] Chyba při přidávání videa:", err);
@@ -49,6 +55,7 @@ export function AddVideoDialog({ open, onClose, onAdd }: AddVideoDialogProps) {
   function handleClose() {
     setTitle("");
     setDateAssigned("");
+    setMaterialsUrl("");
     setError(null);
     onClose();
   }
@@ -78,6 +85,19 @@ export function AddVideoDialog({ open, onClose, onAdd }: AddVideoDialogProps) {
               type="date"
               value={dateAssigned}
               onChange={(e) => setDateAssigned(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="materials-url">
+              Složka s podklady{" "}
+              <span className="text-muted-foreground font-normal">(Google Drive odkaz)</span>
+            </Label>
+            <Input
+              id="materials-url"
+              type="url"
+              placeholder="https://drive.google.com/..."
+              value={materialsUrl}
+              onChange={(e) => setMaterialsUrl(e.target.value)}
             />
           </div>
 

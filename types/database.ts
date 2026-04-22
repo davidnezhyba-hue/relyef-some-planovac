@@ -4,6 +4,8 @@ export type ApprovalStatus = "pending" | "approved" | "rejected";
 export interface DesignerRow {
   id: string;
   name: string;
+  email: string | null;
+  phone: string | null;
   created_at: string;
 }
 
@@ -12,6 +14,7 @@ export interface VideoRow {
   title: string;
   date_assigned: string | null;
   materials_ready: boolean;
+  materials_url: string | null;
   assigned_to_designer: boolean;
   designer_id: string | null;
   production_status: ProductionStatus;

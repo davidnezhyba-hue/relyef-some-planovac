@@ -46,6 +46,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AddVideoDialog } from "@/components/videos/add-video-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 const TikTokIcon = () => (
@@ -271,6 +281,9 @@ interface VideoRowComponentProps {
 }
 
 function VideoTableRow({ video, designers, onUpdate, onDelete }: VideoRowComponentProps) {
+  const [pendingDesigner, setPendingDesigner] = useState<DesignerRow | null>(null);
+  const [emailComment, setEmailComment] = useState("");
+
   function cycleProductionStatus() {
     const next: ProductionStatus =
       video.production_status === "in_progress" ? "done" : "in_progress";
@@ -289,10 +302,50 @@ function VideoTableRow({ video, designers, onUpdate, onDelete }: VideoRowCompone
     onUpdate(video.id, "approval_sent_at", new Date().toISOString());
   }
 
+  function handleDesignerSelect(designerId: string) {
+    if (!designerId) {
+      onUpdate(video.id, "designer_id", null);
+      onUpdate(video.id, "assigned_to_designer", false);
+      return;
+    }
+    const designer = designers.find((d) => d.id === designerId);
+    if (!designer) return;
+    setPendingDesigner(designer);
+    setEmailComment("");
+  }
+
+  function applyDesignerAssignment(designer: DesignerRow) {
+    onUpdate(video.id, "designer_id", designer.id);
+    onUpdate(video.id, "assigned_to_designer", true);
+    setPendingDesigner(null);
+    setEmailComment("");
+  }
+
+  function handleSendEmail(designer: DesignerRow) {
+    const subject = encodeURIComponent(`Podklady k videu: ${video.title}`);
+    const body = encodeURIComponent(
+      [
+        `Dobrý den,`,
+        ``,
+        `zasílám podklady k videu: ${video.title}`,
+        video.materials_url ? `Odkaz na podklady: ${video.materials_url}` : ``,
+        emailComment ? `\nKomentář: ${emailComment}` : ``,
+        ``,
+        `Děkuji`,
+      ]
+        .filter((l) => l !== undefined)
+        .join("\n")
+    );
+    const to = encodeURIComponent(designer.email ?? "");
+    window.open(`mailto:${to}?subject=${subject}&body=${body}`);
+    applyDesignerAssignment(designer);
+  }
+
   const showSendButton =
     video.production_status === "done" && !!video.finished_video_folder_url;
 
   return (
+    <>
     <tr className="border-b border-border hover:bg-muted/30 transition-colors">
       {/* Název videa */}
       <td className="px-3 py-2.5 min-w-[200px] max-w-[260px]">
@@ -315,23 +368,49 @@ function VideoTableRow({ video, designers, onUpdate, onDelete }: VideoRowCompone
         />
       </td>
 
-      {/* Podklady / videa */}
-      <td className="px-3 py-2.5 min-w-[120px] text-center">
-        <button
-          onClick={() =>
-            onUpdate(video.id, "materials_ready", !video.materials_ready)
-          }
-        >
-          <Badge
-            variant={video.materials_ready ? "success" : "error"}
-            className="cursor-pointer select-none whitespace-nowrap"
-          >
-            {video.materials_ready ? "✓ Připraveno" : "✗ Chybí"}
-          </Badge>
-        </button>
+      {/* Podklady — odkaz na složku s podklady */}
+      <td className="px-3 py-2.5 min-w-[90px] text-center">
+        {video.materials_url ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <a
+                href={video.materials_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex text-[#633122] hover:text-[#633122]/70 transition-colors"
+              >
+                <Folder className="h-4 w-4" />
+              </a>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Otevřít podklady</p>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <FolderUrlInput
+            value={video.materials_url}
+            onSave={(v) => onUpdate(video.id, "materials_url", v)}
+          />
+        )}
       </td>
 
-      {/* Zadáno grafičce */}
+      {/* Grafička — před "Zadáno grafičce" */}
+      <td className="px-3 py-2.5 min-w-[140px]">
+        <select
+          className="text-sm bg-transparent border border-input rounded px-2 py-1 outline-none focus:ring-2 focus:ring-ring w-full"
+          value={video.designer_id ?? ""}
+          onChange={(e) => handleDesignerSelect(e.target.value)}
+        >
+          <option value="">— nevybráno —</option>
+          {designers.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
+            </option>
+          ))}
+        </select>
+      </td>
+
+      {/* Zadáno grafičce — za "Grafička" */}
       <td className="px-3 py-2.5 min-w-[120px] text-center">
         <button
           onClick={() =>
@@ -345,24 +424,6 @@ function VideoTableRow({ video, designers, onUpdate, onDelete }: VideoRowCompone
             {video.assigned_to_designer ? "✓ Zadáno" : "✗ Nezadáno"}
           </Badge>
         </button>
-      </td>
-
-      {/* Grafička */}
-      <td className="px-3 py-2.5 min-w-[140px]">
-        <select
-          className="text-sm bg-transparent border border-input rounded px-2 py-1 outline-none focus:ring-2 focus:ring-ring w-full"
-          value={video.designer_id ?? ""}
-          onChange={(e) =>
-            onUpdate(video.id, "designer_id", e.target.value || null)
-          }
-        >
-          <option value="">— nevybráno —</option>
-          {designers.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
       </td>
 
       {/* Stav výroby */}
@@ -544,6 +605,101 @@ function VideoTableRow({ video, designers, onUpdate, onDelete }: VideoRowCompone
         </AlertDialog>
       </td>
     </tr>
+
+    {/* Email modal — otevře se při výběru grafičky */}
+    <Dialog
+      open={!!pendingDesigner}
+      onOpenChange={(open) => {
+        if (!open) {
+          setPendingDesigner(null);
+          setEmailComment("");
+        }
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Odeslat podklady grafičce</DialogTitle>
+          {pendingDesigner && (
+            <DialogDescription>
+              Grafička: <strong>{pendingDesigner.name}</strong>
+            </DialogDescription>
+          )}
+        </DialogHeader>
+
+        {pendingDesigner && (
+          <div className="space-y-4">
+            {/* Email grafičky */}
+            <div className="rounded-md bg-muted px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Email: </span>
+              {pendingDesigner.email ? (
+                <a
+                  href={`mailto:${pendingDesigner.email}`}
+                  className="text-[#633122] font-medium"
+                >
+                  {pendingDesigner.email}
+                </a>
+              ) : (
+                <span className="text-muted-foreground italic">
+                  Grafička nemá vyplněný email
+                </span>
+              )}
+            </div>
+
+            {/* Odkaz na podklady */}
+            <div className="rounded-md bg-muted px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Podklady: </span>
+              {video.materials_url ? (
+                <a
+                  href={video.materials_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#633122] font-medium underline underline-offset-2 break-all"
+                >
+                  {video.materials_url}
+                </a>
+              ) : (
+                <span className="text-amber-600 font-medium">
+                  ⚠ Video nemá vyplněné podklady
+                </span>
+              )}
+            </div>
+
+            {/* Komentář */}
+            <div className="space-y-1.5">
+              <Label htmlFor="email-comment" className="text-sm">
+                Komentář{" "}
+                <span className="text-muted-foreground font-normal">(volitelný)</span>
+              </Label>
+              <Textarea
+                id="email-comment"
+                placeholder="Napište zprávu pro grafičku…"
+                value={emailComment}
+                onChange={(e) => setEmailComment(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+        )}
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button
+            variant="outline"
+            onClick={() => pendingDesigner && applyDesignerAssignment(pendingDesigner)}
+          >
+            Přeskočit
+          </Button>
+          <Button
+            onClick={() => pendingDesigner && handleSendEmail(pendingDesigner)}
+            disabled={!pendingDesigner?.email}
+            className="bg-[#633122] hover:bg-[#633122]/80 text-white gap-1.5"
+          >
+            <Send className="h-4 w-4" />
+            Odeslat email
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
@@ -701,6 +857,7 @@ export function VideoTable() {
   async function handleAddVideo(data: {
     title: string;
     date_assigned: string | null;
+    materials_url: string | null;
   }) {
     if (!supabase) {
       throw new Error("Supabase client není dostupný. Zkontrolujte .env.local soubor.");
@@ -708,10 +865,10 @@ export function VideoTable() {
 
     console.log("[VideoTable] Přidávám video:", data);
 
-    // Posíláme pouze povinné pole + datum — DB defaulty doplní zbytek
     const insertPayload = {
       title: data.title,
       ...(data.date_assigned ? { date_assigned: data.date_assigned } : {}),
+      ...(data.materials_url ? { materials_url: data.materials_url } : {}),
     };
 
     console.log("[VideoTable] Insert payload:", insertPayload);
@@ -876,14 +1033,14 @@ export function VideoTable() {
                   <th className="px-3 py-3 text-left font-semibold text-xs uppercase tracking-wide text-muted-foreground min-w-[140px]">
                     Datum zadání
                   </th>
-                  <th className="px-3 py-3 text-center font-semibold text-xs uppercase tracking-wide text-muted-foreground min-w-[120px]">
+                  <th className="px-3 py-3 text-center font-semibold text-xs uppercase tracking-wide text-muted-foreground min-w-[90px]">
                     Podklady
-                  </th>
-                  <th className="px-3 py-3 text-center font-semibold text-xs uppercase tracking-wide text-muted-foreground min-w-[120px]">
-                    Zadáno grafičce
                   </th>
                   <th className="px-3 py-3 text-left font-semibold text-xs uppercase tracking-wide text-muted-foreground min-w-[140px]">
                     Grafička
+                  </th>
+                  <th className="px-3 py-3 text-center font-semibold text-xs uppercase tracking-wide text-muted-foreground min-w-[120px]">
+                    Zadáno grafičce
                   </th>
                   <th className="px-3 py-3 text-center font-semibold text-xs uppercase tracking-wide text-muted-foreground min-w-[120px]">
                     Stav výroby
