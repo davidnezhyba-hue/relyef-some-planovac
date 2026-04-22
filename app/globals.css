@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 30 20% 98%;
+    --foreground: 20 10% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 20 10% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 10% 15%;
+    --primary: 31 19% 76%;
+    --primary-foreground: 14 49% 26%;
+    --secondary: 30 15% 94%;
+    --secondary-foreground: 20 10% 25%;
+    --muted: 30 15% 94%;
+    --muted-foreground: 20 10% 50%;
+    --accent: 14 49% 26%;
+    --accent-foreground: 30 20% 96%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 30 15% 88%;
+    --input: 30 15% 88%;
+    --ring: 31 19% 76%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 20 10% 8%;
+    --foreground: 30 20% 95%;
+    --card: 20 10% 10%;
+    --card-foreground: 30 20% 95%;
+    --popover: 20 10% 10%;
+    --popover-foreground: 30 20% 95%;
+    --primary: 31 19% 76%;
+    --primary-foreground: 14 49% 26%;
+    --secondary: 20 10% 15%;
+    --secondary-foreground: 30 20% 90%;
+    --muted: 20 10% 15%;
+    --muted-foreground: 30 15% 60%;
+    --accent: 14 49% 26%;
+    --accent-foreground: 30 20% 96%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 20 10% 20%;
+    --input: 20 10% 20%;
+    --ring: 31 19% 76%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom scrollbar for the table */
+.table-scroll-container::-webkit-scrollbar {
+  height: 6px;
+}
+.table-scroll-container::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 3px;
+}
+.table-scroll-container::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+.table-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.4);
+}
+
+/* Inline edit cell focus */
+.cell-input {
+  @apply w-full bg-transparent border-0 outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 rounded px-1 py-0.5 text-sm;
+}
