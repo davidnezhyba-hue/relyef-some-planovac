@@ -916,8 +916,8 @@ export function VideoTable() {
 
     const insertPayload: Database["public"]["Tables"]["videos"]["Insert"] = {
       title: data.title,
-      ...(data.date_assigned ? { date_assigned: data.date_assigned } : {}),
-      ...(data.materials_url ? { materials_url: data.materials_url } : {}),
+      date_assigned: data.date_assigned ?? undefined,
+      materials_url: data.materials_url ?? undefined,
     };
 
     console.log("[VideoTable] Insert payload:", insertPayload);
