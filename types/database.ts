@@ -78,9 +78,9 @@ export interface Database {
           materials_url: string | null;
           assigned_to_designer: boolean;
           designer_id: string | null;
-          production_status: string;
+          production_status: ProductionStatus;
           finished_video_folder_url: string | null;
-          approval_status: string;
+          approval_status: ApprovalStatus;
           approval_sent_at: string | null;
           published_fb: string | null;
           published_ig: string | null;
@@ -100,9 +100,9 @@ export interface Database {
           materials_url?: string | null;
           assigned_to_designer?: boolean;
           designer_id?: string | null;
-          production_status?: string;
+          production_status?: ProductionStatus;
           finished_video_folder_url?: string | null;
-          approval_status?: string;
+          approval_status?: ApprovalStatus;
           approval_sent_at?: string | null;
           published_fb?: string | null;
           published_ig?: string | null;
@@ -122,9 +122,9 @@ export interface Database {
           materials_url?: string | null;
           assigned_to_designer?: boolean;
           designer_id?: string | null;
-          production_status?: string;
+          production_status?: ProductionStatus;
           finished_video_folder_url?: string | null;
-          approval_status?: string;
+          approval_status?: ApprovalStatus;
           approval_sent_at?: string | null;
           published_fb?: string | null;
           published_ig?: string | null;
