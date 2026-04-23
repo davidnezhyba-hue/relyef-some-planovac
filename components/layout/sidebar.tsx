@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Settings } from "lucide-react";
+import { LayoutDashboard, Users, Settings, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -15,6 +15,11 @@ const navItems = [
     href: "/designers",
     label: "Grafičky",
     icon: Users,
+  },
+  {
+    href: "/marketing-plan",
+    label: "Marketingový plán",
+    icon: CalendarDays,
   },
   {
     href: "/settings",
@@ -30,7 +35,7 @@ export function Sidebar() {
     <aside className="fixed left-0 top-0 z-40 h-screen w-56 border-r border-border bg-card flex flex-col">
       <div className="flex h-16 items-center px-6 border-b border-border">
         <span className="text-base font-semibold text-[#633122]">
-          Video Plánovač
+          Relyef SOME Plánovač
         </span>
       </div>
 

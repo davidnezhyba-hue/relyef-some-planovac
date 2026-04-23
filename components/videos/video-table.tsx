@@ -17,6 +17,7 @@ import {
   Instagram,
   Youtube,
   Link2,
+  MessageCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AddVideoDialog } from "@/components/videos/add-video-dialog";
+import { VideoCommentsModal } from "@/components/videos/video-comments-modal";
 import {
   Dialog,
   DialogContent,
@@ -278,9 +280,11 @@ interface VideoRowComponentProps {
   designers: DesignerRow[];
   onUpdate: (id: string, field: keyof VideoRow, value: unknown) => void;
   onDelete: (id: string) => void;
+  commentCount: number;
+  onOpenComments: (id: string) => void;
 }
 
-function VideoTableRow({ video, designers, onUpdate, onDelete }: VideoRowComponentProps) {
+function VideoTableRow({ video, designers, onUpdate, onDelete, commentCount, onOpenComments }: VideoRowComponentProps) {
   const [pendingDesigner, setPendingDesigner] = useState<DesignerRow | null>(null);
   const [emailComment, setEmailComment] = useState("");
 
@@ -298,6 +302,24 @@ function VideoTableRow({ video, designers, onUpdate, onDelete }: VideoRowCompone
   }
 
   function sendForApproval() {
+    const commentsUrl = `https://relyef-some-planovac.vercel.app/video/${video.id}/comments`;
+    const subject = encodeURIComponent(`Schválení videa: ${video.title}`);
+    const body = encodeURIComponent(
+      [
+        `Dobrý den,`,
+        ``,
+        `žádáme vás o schválení videa: ${video.title}`,
+        video.finished_video_folder_url
+          ? `\nOdkaz na hotové video: ${video.finished_video_folder_url}`
+          : ``,
+        ``,
+        `Své připomínky nebo schválení prosím zapište zde: ${commentsUrl}`,
+        ``,
+        `Děkuji`,
+      ]
+        .join("\n")
+    );
+    window.open(`mailto:?subject=${subject}&body=${body}`);
     onUpdate(video.id, "approval_status", "pending");
     onUpdate(video.id, "approval_sent_at", new Date().toISOString());
   }
@@ -576,6 +598,22 @@ function VideoTableRow({ video, designers, onUpdate, onDelete }: VideoRowCompone
         />
       </td>
 
+      {/* Komentáře */}
+      <td className="px-3 py-2.5 min-w-[60px] text-center">
+        <button
+          onClick={() => onOpenComments(video.id)}
+          className="relative inline-flex items-center justify-center text-muted-foreground hover:text-[#633122] transition-colors p-1"
+          title="Zobrazit komentáře"
+        >
+          <MessageCircle className="h-4 w-4" />
+          {commentCount > 0 && (
+            <span className="absolute -top-1 -right-1.5 min-w-[16px] h-4 rounded-full bg-[#633122] text-white text-[9px] font-semibold flex items-center justify-center px-1 leading-none">
+              {commentCount}
+            </span>
+          )}
+        </button>
+      </td>
+
       {/* Smazat */}
       <td className="px-3 py-2.5 min-w-[50px] text-center">
         <AlertDialog>
@@ -764,7 +802,10 @@ export function VideoTable() {
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [productionFilter, setProductionFilter] = useState<string>("all");
   const [approvalFilter, setApprovalFilter] = useState<string>("all");
+  const [metricFilter, setMetricFilter] = useState<"overdue" | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [openCommentsVideoId, setOpenCommentsVideoId] = useState<string | null>(null);
 
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
   if (!supabaseRef.current) {
@@ -787,12 +828,13 @@ export function VideoTable() {
     setLoading(true);
     setError(null);
     console.log("[VideoTable] Načítám data z Supabase…");
-    const [videosResult, designersResult] = await Promise.all([
+    const [videosResult, designersResult, commentsResult] = await Promise.all([
       supabase
         .from("videos")
         .select("*")
         .order("date_assigned", { ascending: false, nullsFirst: false }),
       supabase.from("designers").select("*").order("name"),
+      supabase.from("video_comments").select("video_id"),
     ]);
 
     if (videosResult.error) {
@@ -811,6 +853,13 @@ export function VideoTable() {
       console.error("[VideoTable] Chyba při načítání grafiček:", designersResult.error);
     } else {
       setDesigners(designersResult.data ?? []);
+    }
+    if (!commentsResult.error && commentsResult.data) {
+      const counts: Record<string, number> = {};
+      for (const row of commentsResult.data) {
+        counts[row.video_id] = (counts[row.video_id] ?? 0) + 1;
+      }
+      setCommentCounts(counts);
     }
     setLoading(false);
   }, [supabase]);
@@ -897,6 +946,20 @@ export function VideoTable() {
 
   const allTags = [...new Set(videos.flatMap((v) => v.tags))].sort();
 
+  const overduecutoff = new Date();
+  overduecutoff.setDate(overduecutoff.getDate() - 14);
+  const isOverdue = (v: VideoRow) =>
+    !!v.date_assigned &&
+    new Date(v.date_assigned) < overduecutoff &&
+    v.production_status !== "done";
+
+  const metrics = {
+    total: videos.length,
+    inProgress: videos.filter((v) => v.production_status === "in_progress").length,
+    pendingApproval: videos.filter((v) => v.approval_status === "pending").length,
+    overdue: videos.filter(isOverdue).length,
+  };
+
   const filteredVideos = videos.filter((v) => {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -911,11 +974,81 @@ export function VideoTable() {
       return false;
     if (approvalFilter !== "all" && v.approval_status !== approvalFilter)
       return false;
+    if (metricFilter === "overdue" && !isOverdue(v)) return false;
     return true;
   });
 
   return (
     <div className="flex flex-col h-full">
+      {/* Metriky */}
+      <div className="grid grid-cols-4 gap-4 px-6 py-4 border-b border-border bg-background">
+        {[
+          {
+            label: "Celkem videí",
+            value: metrics.total,
+            active: false,
+            onClick: () => {
+              setProductionFilter("all");
+              setApprovalFilter("all");
+              setMetricFilter(null);
+              setSearchQuery("");
+              setTagFilter([]);
+            },
+          },
+          {
+            label: "Ve výrobě",
+            value: metrics.inProgress,
+            active: productionFilter === "in_progress" && metricFilter === null,
+            onClick: () => {
+              setProductionFilter("in_progress");
+              setApprovalFilter("all");
+              setMetricFilter(null);
+            },
+          },
+          {
+            label: "Čeká na schválení",
+            value: metrics.pendingApproval,
+            active: approvalFilter === "pending" && metricFilter === null,
+            onClick: () => {
+              setApprovalFilter("pending");
+              setProductionFilter("all");
+              setMetricFilter(null);
+            },
+          },
+          {
+            label: "Po deadlinu",
+            value: metrics.overdue,
+            active: metricFilter === "overdue",
+            onClick: () => {
+              setMetricFilter(metricFilter === "overdue" ? null : "overdue");
+              setProductionFilter("all");
+              setApprovalFilter("all");
+            },
+          },
+        ].map((card) => (
+          <button
+            key={card.label}
+            onClick={card.onClick}
+            className={cn(
+              "rounded-lg border p-4 text-left transition-colors hover:bg-muted/60",
+              card.active
+                ? "border-[#633122] bg-[#D8C2AA]/30"
+                : "border-border bg-card"
+            )}
+          >
+            <p
+              className={cn(
+                "text-2xl font-bold",
+                card.active ? "text-[#633122]" : "text-foreground"
+              )}
+            >
+              {card.value}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">{card.label}</p>
+          </button>
+        ))}
+      </div>
+
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 px-6 py-4 border-b border-border bg-background">
         {/* Search */}
@@ -1072,6 +1205,9 @@ export function VideoTable() {
                   <th className="px-3 py-3 text-left font-semibold text-xs uppercase tracking-wide text-muted-foreground min-w-[160px]">
                     Tagy
                   </th>
+                  <th className="px-3 py-3 text-center font-semibold text-xs uppercase tracking-wide text-muted-foreground min-w-[60px]">
+                    Komentáře
+                  </th>
                   <th className="px-3 py-3 min-w-[50px]" />
                 </tr>
               </thead>
@@ -1079,7 +1215,7 @@ export function VideoTable() {
                 {filteredVideos.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={16}
+                      colSpan={17}
                       className="px-6 py-12 text-center text-muted-foreground"
                     >
                       {videos.length === 0
@@ -1095,6 +1231,8 @@ export function VideoTable() {
                       designers={designers}
                       onUpdate={handleUpdate}
                       onDelete={handleDelete}
+                      commentCount={commentCounts[video.id] ?? 0}
+                      onOpenComments={setOpenCommentsVideoId}
                     />
                   ))
                 )}
@@ -1109,6 +1247,18 @@ export function VideoTable() {
         onClose={() => setShowAddDialog(false)}
         onAdd={handleAddVideo}
       />
+
+      {openCommentsVideoId && (
+        <VideoCommentsModal
+          open={!!openCommentsVideoId}
+          onClose={() => setOpenCommentsVideoId(null)}
+          videoId={openCommentsVideoId}
+          videoTitle={videos.find((v) => v.id === openCommentsVideoId)?.title ?? ""}
+          onCountChange={(id, count) =>
+            setCommentCounts((prev) => ({ ...prev, [id]: count }))
+          }
+        />
+      )}
     </div>
   );
 }

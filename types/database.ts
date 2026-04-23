@@ -34,6 +34,14 @@ export interface VideoRow {
 
 export type VideoUpdate = Partial<Omit<VideoRow, "id" | "created_at">>;
 
+export interface VideoCommentRow {
+  id: string;
+  video_id: string;
+  author_name: string;
+  content: string;
+  created_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {

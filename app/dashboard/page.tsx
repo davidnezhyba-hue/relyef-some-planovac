@@ -1,7 +1,7 @@
 import { VideoTable } from "@/components/videos/video-table";
 
 export const metadata = {
-  title: "Dashboard | Video Plánovač",
+  title: "Dashboard | Relyef SOME Plánovač",
 };
 
 export default function DashboardPage() {
