@@ -49,12 +49,35 @@ export interface Database {
         Row: DesignerRow;
         Insert: Omit<DesignerRow, "id" | "created_at">;
         Update: Partial<Omit<DesignerRow, "id" | "created_at">>;
+        Relationships: [];
       };
       videos: {
         Row: VideoRow;
         Insert: Omit<VideoRow, "id" | "created_at" | "updated_at">;
         Update: VideoUpdate;
+        Relationships: [];
+      };
+      video_comments: {
+        Row: VideoCommentRow;
+        Insert: Omit<VideoCommentRow, "id" | "created_at">;
+        Update: Partial<Omit<VideoCommentRow, "id" | "created_at">>;
+        Relationships: [
+          {
+            foreignKeyName: "video_comments_video_id_fkey";
+            columns: ["video_id"];
+            isOneToOne: false;
+            referencedRelation: "videos";
+            referencedColumns: ["id"];
+          }
+        ];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: {
+      production_status: "in_progress" | "done";
+      approval_status: "pending" | "approved" | "rejected";
+    };
+    CompositeTypes: Record<string, never>;
   };
 }

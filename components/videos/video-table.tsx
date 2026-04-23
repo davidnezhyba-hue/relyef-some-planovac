@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { VideoRow, DesignerRow, ProductionStatus, ApprovalStatus } from "@/types/database";
+import type { VideoRow, DesignerRow, ProductionStatus, ApprovalStatus, Database } from "@/types/database";
 import { format, parseISO } from "date-fns";
 import { cs } from "date-fns/locale";
 import {
@@ -914,7 +914,7 @@ export function VideoTable() {
 
     console.log("[VideoTable] Přidávám video:", data);
 
-    const insertPayload = {
+    const insertPayload: Database["public"]["Tables"]["videos"]["Insert"] = {
       title: data.title,
       ...(data.date_assigned ? { date_assigned: data.date_assigned } : {}),
       ...(data.materials_url ? { materials_url: data.materials_url } : {}),
